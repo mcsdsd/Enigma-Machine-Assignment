@@ -4,6 +4,7 @@
 --}
 
 module Enigma where
+  import Debug.Trace
   import Data.Char  -- to use functions on characters
   import Data.Maybe -- breakEnigma uses Maybe type
   -- add extra imports if needed, but only standard library functions!
@@ -19,11 +20,11 @@ module Enigma where
                 | SteckeredEnigma Rotor Rotor Rotor Reflector Offsets Stecker
 
   encodeMessage :: String -> Enigma -> String
-  encodeMessage message (SimpleEnigma r1 r2 r3 rf off) = encodeString capMessage (SimpleEnigma r1 r2 r3 rf off) 
+  encodeMessage message (SimpleEnigma rL rM rR rf off) = encodeString capMessage (SimpleEnigma rL rM rR rf off) 
     where
       capMessage = capitaliseMessage truncMessage
       truncMessage = truncateMessage message
-  encodeMessage message (SteckeredEnigma r1 r2 r3 rf off pb) = encodeString capMessage (SteckeredEnigma r1 r2 r3 rf off pb) 
+  encodeMessage message (SteckeredEnigma rL rM rR rf off pb) = encodeString capMessage (SteckeredEnigma rL rM rR rf off pb) 
     where
       capMessage = capitaliseMessage truncMessage
       truncMessage = truncateMessage message
@@ -34,40 +35,58 @@ module Enigma where
    -}
 
   encodeString :: String -> Enigma -> String
-  encodeString [] (SimpleEnigma r1 r2 r3 rf off) = []
-  encodeString [] (SteckeredEnigma r1 r2 r3 rf off pb) = []
-  encodeString (x:xs) (SimpleEnigma r1 r2 r3 rf off) = [] ++ [encodeChar x (SimpleEnigma r1 r2 r3 rf updatedOff)] ++ encodeString xs (SimpleEnigma r1 r2 r3 rf updatedOff)
-   where
-    updatedOff = incrementOffsets off r1 r2 r3
-  encodeString (x:xs) (SteckeredEnigma r1 r2 r3 rf off pb) = [] ++ [encodeChar x (SteckeredEnigma r1 r2 r3 rf updatedOff pb)] ++ encodeString xs (SteckeredEnigma r1 r2 r3 rf updatedOff pb)
-   where
-    updatedOff = incrementOffsets off r1 r2 r3
+  encodeString [] (SimpleEnigma rL rM rR rf off) = []
+  encodeString [] (SteckeredEnigma rL rM rR rf off pb) = []
+  encodeString (x:xs) (SimpleEnigma rL rM rR rf off) = [] ++ [encodeChar x enigma] ++ encodeString xs enigma
+    where
+      updatedOff = (incrementOffsets off rL rM rR)
+      enigma = (SimpleEnigma rL rM rR rf updatedOff)
+  encodeString (x:xs) (SteckeredEnigma rL rM rR rf off pb) = [] ++ [encodeChar x steckeredEnigma] ++ encodeString xs steckeredEnigma
+    where
+      updatedOff = incrementOffsets off rL rM rR
+      steckeredEnigma = (SteckeredEnigma rL rM rR rf off pb)
   
 
   encodeChar :: Char -> Enigma -> Char 
-  encodeChar character (SimpleEnigma r1 r2 r3 rf off) = reversePassByRotors (reflectChar (passByRotors character off r1 r2 r3) rf) off r1 r2 r3
-  encodeChar character (SteckeredEnigma r1 r2 r3 rf off pb) = steckerChar (reversePassByRotors (reflectChar (passByRotors (steckerChar character pb) off r1 r2 r3) rf) off r1 r2 r3) pb
+  encodeChar character (SimpleEnigma rL rM rR rf off) = encodedChar
+    where
+      fstEnc = (passByRotors character off rL rM rR)
+      rfChar = (reflectChar fstEnc rf)
+      encodedChar = reversePassByRotors rfChar off rL rM rR
+  encodeChar character (SteckeredEnigma rL rM rR rf off pb) = encodedChar
+    where
+      fstStckr = (steckerChar character pb)
+      fstEnc = (passByRotors fstStckr off rL rM rR)
+      rfChar = (reflectChar fstEnc rf)
+      rvrsEnc = (reversePassByRotors rfChar off rL rM rR)
+      encodedChar = steckerChar rvrsEnc pb
   
 
   incrementOffsets :: Offsets -> Rotor -> Rotor -> Rotor -> Offsets 
-  incrementOffsets (off1, off2, off3) r1 r2 r3
-                                            | off1 == snd r1 && off2 /= snd r2 && off3 /= snd r3 = (off1, off2, (off3 + 1) `mod` 26)
-                                            | off2 == snd r2 && off1 /= snd r1 && off3 /= snd r3 = ((off1 + 1) `mod` 26, off2, (off3 + 1) `mod` 26)
-                                            | off2 == snd r2 && off1 == snd r1 && off3 /= snd r3 = ((off1 + 1) `mod` 26, off2, (off3 + 1) `mod` 26)
-                                            | off1 == snd r1 && off2 /= snd r2 && off3 == snd r3 = (off1, (off2 + 1) `mod` 26, (off3 + 1) `mod` 26)
-                                            | off2 == snd r2 && off1 /= snd r1 && off3 == snd r3 = ((off1 + 1) `mod` 26, (off2 + 1) `mod` 26, (off3 + 1) `mod` 26)
-                                            | off2 == snd r2 && off1 == snd r1 && off3 == snd r3 = ((off1 + 1) `mod` 26, (off2 + 1) `mod` 26, (off3 + 1) `mod` 26)
-                                            | off2 /= snd r2 && off1 /= snd r1 && off3 == snd r3 = (off1, (off2 + 1) `mod` 26, (off3 + 1) `mod` 26)
-                                            | otherwise = (off1, off2, (off3 + 1) `mod` 26)
+  incrementOffsets (off1, off2, off3) r1 (_,kM) (_,kR) = (newL, newM, newR)
+                                         where
+                                          newR = (off3+1) `mod` 26
+                                          newM | off3 == kR = (off2+1) `mod` 26
+                                               | otherwise = off2
+                                          newL | off2 == kM && off3 == kR = (off1+1) `mod` 26
+                                               | otherwise = off1
                                                
 
 
   
   passByRotors :: Char -> Offsets -> Rotor -> Rotor -> Rotor -> Char
-  passByRotors character (off1, off2, off3) lr mr rr = passByRotor (passByRotor (passByRotor character rr off3) mr off2) lr off1
+  passByRotors character (oL, oM, oR) rL rM rR = finalChar
+              where
+                rightRotor = (passByRotor character rR oR)
+                middleRotor = (passByRotor rightRotor rM oM)
+                finalChar =  passByRotor middleRotor rL oL
 
   reversePassByRotors :: Char -> Offsets -> Rotor -> Rotor -> Rotor -> Char
-  reversePassByRotors character (off1, off2, off3) lr mr rr = reversePassByRotor (reversePassByRotor (reversePassByRotor character lr off1) mr off2) rr off3
+  reversePassByRotors character (oL, oM, oR) rL rM rR = finalChar
+                where
+                  leftRotor = (reversePassByRotor character rL oL)
+                  middleRotor = (reversePassByRotor leftRotor rM oM)
+                  finalChar = reversePassByRotor middleRotor rR oR
 
   reflectChar :: Char -> Reflector -> Char
   reflectChar _ [] = 'A'
@@ -103,8 +122,11 @@ module Enigma where
   steckerChar :: Char -> Stecker -> Char
   steckerChar a [] = a
   steckerChar a (x:xs)
-                  | (isInList a (map fst (x:xs))) || (isInList a (map snd (x:xs))) = reflectChar a (x:xs)
-                  | otherwise = a 
+                  | (isInList a fstChars) || (isInList a sndChars) = reflectChar a (x:xs)
+                  | otherwise = a
+                  where
+                    fstChars = (map fst (x:xs))
+                    sndChars = (map snd (x:xs))
 
 
   isInList :: Char -> [Char] -> Bool
@@ -122,19 +144,23 @@ module Enigma where
   longestMenu :: Crib -> Menu
   longestMenu (x:xs) = []
 
-  generateMenu :: Crib -> [((Char,Char), Int)]
-  generateMenu [] = []
-  generateMenu (x:xs) = [] ++ [((fst x, snd x), getIndex (snd x) origList)] ++ generateMenu xs
-    where
-      origList = map fst (x:xs)
 
-  {-generateMenu :: String -> String  -> Int -> Menu
-  generateMenu "" "" 0 = []
-  generateMenu plTxt cyphrTxt pos
-                            | 
--}
+  {-getEncodingPos :: Crib -> Int -> ((Char, Char), [Int])
+  getEncodingPos [] _ = -}
+
+
+  namelessFunction :: [Char] -> Crib -> [Int]
+
 
   
+  extractAll :: Char -> [Char] -> ([Char],[Int])
+  extractAll _ [] = []
+  extractAll character (x:xs) = (characters,indices)
+    where
+      characters = | character == x = [] + extractAll character xs
+                   | otherwise = extractAll character xs
+      indices = | charac
+
 
   numOccurences :: Char -> [Char] -> Int 
   numOccurences _ [] = 0

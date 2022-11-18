@@ -4,7 +4,9 @@
 --}
 
 module Enigma where
+  import Data.List
   import Debug.Trace
+  import Data.Ord
   import Data.Char  -- to use functions on characters
   import Data.Maybe -- breakEnigma uses Maybe type
   -- add extra imports if needed, but only standard library functions!
@@ -128,6 +130,12 @@ module Enigma where
                     fstChars = (map fst (x:xs))
                     sndChars = (map snd (x:xs))
 
+  elmRepeats :: [Char] -> [Char] -> Bool
+  elmRepeats newList [] = False
+  elmRepeats newList (x:xs)
+                  | length xs > 0 && isInList (head xs) (newList ++ [x]) = True
+                  | otherwise = elmRepeats (newList ++ [x]) xs
+
 
   isInList :: Char -> [Char] -> Bool
   isInList a [] = False
@@ -142,36 +150,57 @@ module Enigma where
   type Crib = [(Char,Char)] -- the supplied type is not correct; fix it!
 
   longestMenu :: Crib -> Menu
-  longestMenu (x:xs) = []
-
-
-  {-getEncodingPos :: Crib -> Int -> ((Char, Char), [Int])
-  getEncodingPos [] _ = -}
-
-
-  namelessFunction :: [Char] -> Crib -> [Int]
-
-
-  
-  extractAll :: Char -> [Char] -> ([Char],[Int])
-  extractAll _ [] = []
-  extractAll character (x:xs) = (characters,indices)
+  longestMenu crib = maximumBy (comparing length) (completeMenu startedMenus crib)
     where
-      characters = | character == x = [] + extractAll character xs
-                   | otherwise = extractAll character xs
-      indices = | charac
+      startedMenus = arrangeMenus [] [0..(length crib -1)]
 
+  nextInMenu :: Int -> Crib -> [Int]
+  nextInMenu index (x:xs) = findIndices (==cyChar) crib
+                      where
+                        crib = map fst (x:xs)
+                        cryp = map snd (x:xs)
+                        cyChar = cryp !! index
 
-  numOccurences :: Char -> [Char] -> Int 
-  numOccurences _ [] = 0
-  numOccurences character (x:xs)
-                              | character == x = 1 + numOccurences character xs
-                              | otherwise = 0 + numOccurences character xs
+  arrangeMenus :: [Int] -> [Int] -> [[Int]]
+  arrangeMenus incMenu [] = []
+  arrangeMenus incMenu (y:ys) = [] ++ [incMenu ++ [y]] ++ arrangeMenus incMenu ys
+
+  completeMenu :: [[Int]] -> Crib -> [[Int]]
+  completeMenu [] crib = []
+  completeMenu (x:xs) crib = [] ++ menus ++ completeMenu menus newCrib ++ completeMenu xs crib
+    where
+      menus = arrangeMenus x nextPart
+      nextPart = nextInMenu lastElm crib 
+      newCrib = removeFromCrib lastElm crib
+      lastElm = last x
 
 {- Part 3: Simulating the Bombe -}
   
   breakEnigma :: Crib -> Maybe (Offsets, Stecker)
   breakEnigma _ = Nothing
+
+  testStecker :: Offsets -> Stecker -> Crib -> Bool
+  testStecker _ [] [] = False
+  testStecker (oL,oM,oR) (x:xs) crib =
+
+  isSteckerValid :: Stecker -> Bool
+  isSteckerValid stecker
+                    | length (intersectStecker [] stecker) > 0 || elmRepeats [] (f:fs) || elmRepeats [] (s:ss) = False
+                    | otherwise = True 
+                    where
+                      (f:fs) = map fst stecker
+                      (s:ss) = map snd stecker
+
+  intersectStecker :: [Char] -> Stecker -> [Char]
+  intersectStecker [] (x:xs) = []
+  intersectStecker _ (x:xs) = steckerInt
+    where
+      steckerInt | (getIndex i plain)==(getIndex i crypt) = []
+                 | otherwise = (i:is) ++ intersectStecker is (x:xs)
+      plain = map fst (x:xs)
+      crypt = map snd (x:xs)
+      (i:is) = intersect plain crypt
+
 
 {- Useful definitions and functions -}
 
@@ -226,13 +255,14 @@ module Enigma where
               where
                 apc = alphaPos c
 
-  getOffset :: Int -> Offsets -> Int
-  getOffset 1 (a,_,_) = a
-  getOffset 2 (_,b,_) = b
-  getOffset 3 (_,_,c) = c 
-
-
-
+  --technically I'm substituting in order to not lose the indices when doing the rest of the menu
+  removeFromCrib :: Int -> Crib -> Crib
+  removeFromCrib _ [] = []
+  removeFromCrib index (x:xs) = fstPart ++ [('a','a')] ++ sndPart
+    where
+      splitCrib = splitAt index (x:xs)
+      fstPart = fst splitCrib
+      sndPart = tail (snd splitCrib)
 
   getIndex :: Char -> [Char] -> Int
   getIndex _ [] = 0

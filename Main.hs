@@ -6,7 +6,7 @@ enigma2 = (SteckeredEnigma rotor1 rotor2 rotor3 reflectorB (0,0,25) plugboard)
 crib1 =    "WETTERVORHERSAGEBISKAYA"
 message1 = "RWIVTYRESXBFOGKUHQBAISE"
 
-crib2 = "TURINGBOMBEHASKELLSIMULATIONSTOP"
+crib2 =      "TURINGBOMBEHASKELLSIMULATIONSTOP"
 message2 = "YZCSDCVUFVJAAEMVILWRVSQZFCBPJFVYHUUPHLAPJMTMFNLURRADJFCBRBXBCUSSXVYWAPQIRCUVVNODKELDMNNQHYFEFOZPBUIPWKPXIYPKQHMVOAVXFVDCKMZOULMTQNUFBVHFUSXYCYPWFKBYW"
 
 {- Function that will print "No result!" if Maybe type contains Nothing, or the
@@ -27,6 +27,6 @@ main = do
     print "And another test of encodeMessage: "
     print (encodeMessage "Here is a test input string." enigma2)
     print "Then a test of longestMenu: "
-    --print (longestMenu (zip crib1 message1))
+    print (longestMenu (zip crib1 message1))
     print "And now a test of breakEnigma: "
     --printMaybe (breakEnigma (zip crib2 message2))

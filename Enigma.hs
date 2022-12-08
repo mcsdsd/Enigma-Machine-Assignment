@@ -5,7 +5,6 @@
 
 module Enigma where
   import Data.List
-  import Debug.Trace
   import Data.Ord
   import Data.Char  -- to use functions on characters
   import Data.Maybe -- breakEnigma uses Maybe type
@@ -46,10 +45,9 @@ module Enigma where
   encodeString (x:xs) (SteckeredEnigma rL rM rR rf off pb) = [] ++ [encodeChar x steckeredEnigma] ++ encodeString xs steckeredEnigma
     where
       updatedOff = incrementOffsets off rL rM rR
-      steckeredEnigma = (SteckeredEnigma rL rM rR rf off pb)
+      steckeredEnigma = (SteckeredEnigma rL rM rR rf updatedOff pb)
   
-
-  encodeChar :: Char -> Enigma -> Char 
+  encodeChar :: Char -> Enigma -> Char
   encodeChar character (SimpleEnigma rL rM rR rf off) = encodedChar
     where
       fstEnc = (passByRotors character off rL rM rR)
@@ -63,7 +61,6 @@ module Enigma where
       rvrsEnc = (reversePassByRotors rfChar off rL rM rR)
       encodedChar = steckerChar rvrsEnc pb
   
-
   incrementOffsets :: Offsets -> Rotor -> Rotor -> Rotor -> Offsets 
   incrementOffsets (off1, off2, off3) r1 (_,kM) (_,kR) = (newL, newM, newR)
                                          where
@@ -73,9 +70,6 @@ module Enigma where
                                           newL | off2 == kM && off3 == kR = (off1+1) `mod` 26
                                                | otherwise = off1
                                                
-
-
-  
   passByRotors :: Char -> Offsets -> Rotor -> Rotor -> Rotor -> Char
   passByRotors character (oL, oM, oR) rL rM rR = finalChar
               where
@@ -93,12 +87,12 @@ module Enigma where
   reflectChar :: Char -> Reflector -> Char
   reflectChar _ [] = 'A'
   reflectChar character (x:xs)
-                                    | equalFst = snd x
-                                    | equalSnd = fst x
-                                    | (equalFst && equalSnd) == False = reflectChar character xs
-                                    where 
-                                      equalFst = (character == fst x)
-                                      equalSnd = (character == snd x)
+                            | equalFst = snd x
+                            | equalSnd = fst x
+                            | (equalFst && equalSnd) == False = reflectChar character xs
+                            where 
+                              equalFst = (character == fst x)
+                              equalSnd = (character == snd x)
 
 
   reversePassByRotor :: Char -> Rotor -> Int -> Char
@@ -129,13 +123,6 @@ module Enigma where
                   where
                     fstChars = (map fst (x:xs))
                     sndChars = (map snd (x:xs))
-
-  elmRepeats :: [Char] -> [Char] -> Bool
-  elmRepeats newList [] = False
-  elmRepeats newList (x:xs)
-                  | length xs > 0 && isInList (head xs) (newList ++ [x]) = True
-                  | otherwise = elmRepeats (newList ++ [x]) xs
-
 
   isInList :: Char -> [Char] -> Bool
   isInList a [] = False
@@ -177,30 +164,124 @@ module Enigma where
 {- Part 3: Simulating the Bombe -}
   
   breakEnigma :: Crib -> Maybe (Offsets, Stecker)
-  breakEnigma _ = Nothing
+  breakEnigma [] = Nothing
+  breakEnigma crib 
+                  | possibleSolutions == ((0,0,0),[]) = Nothing
+                  | otherwise = Just possibleSolutions
+                  where
+                    menu = longestMenu crib
+                    initOffsets = (0,6,23)
+                    possibleSolutions = tryAllOffsets crib menu initOffsets 0
 
-  testStecker :: Offsets -> Stecker -> Crib -> Bool
-  testStecker _ [] [] = False
-  testStecker (oL,oM,oR) (x:xs) crib =
+  tryAllOffsets :: Crib -> Menu -> Offsets -> Int -> (Offsets, Stecker)
+  tryAllOffsets crib menu off 17575 = ((0,0,0),[])
+  tryAllOffsets crib menu off n 
+                                | length possibleStecker > 0 = (off, formatStecker possibleStecker)
+                                | otherwise = (tryAllOffsets crib menu newOff (n+1))
+    where
+      initAssumptions = createAssumptions crib menu 26
+      possibleStecker = tryAllAssumptions initAssumptions crib menu off
+      newOff = incrementOffsets off rotor1 rotor2 rotor3 
 
+  tryAllAssumptions :: [(Char,Char)] -> Crib -> Menu -> Offsets -> Stecker 
+  tryAllAssumptions [] crib menu off = []
+  tryAllAssumptions (x:xs) crib menu off
+                                  | length possibleStecker > 0 && encodeString plain possibleEnigma == crypt  = possibleStecker
+                                  | otherwise = tryAllAssumptions xs crib menu off
+                                  where
+                                    plain = (map fst crib)
+                                    crypt = (map snd crib)
+                                    possibleStecker = tryAssumption crib menu [x] off
+                                    fmtdStecker = formatStecker possibleStecker
+                                    possibleEnigma = (SteckeredEnigma rotor1 rotor2 rotor3 reflectorB off fmtdStecker)
+  
+  createAssumptions :: Crib -> Menu -> Int -> [(Char,Char)]
+  createAssumptions crib menu 0 = []
+  createAssumptions crib menu n = [] ++ [(initChar,assumption)] ++ createAssumptions crib menu (n-1)
+    where
+      initChar = (map fst crib) !! head menu
+      charAlphaPos = alphaPos initChar
+      iter = 26 - n
+      assumptionAlphaPos = ((charAlphaPos + iter) `mod` 26 )
+      assumption = charFromAlphaPos assumptionAlphaPos
+      
+  tryAssumption :: Crib -> Menu -> Stecker -> Offsets -> Stecker
+  tryAssumption [] [] [] off = []
+  tryAssumption crib longMenu initStckr off
+                            | isSteckerValid newStckr == False = []
+                            | isSteckerValid newStckr && length longMenu == length newStckr = newStckr
+                            | isSteckerValid newStckr && length longMenu /= length newStckr = tryAssumption crib longMenu newStckr off
+                            where
+                              plainTxt = (map fst crib)
+                              crypt = map snd crib
+                              charIndex = longMenu !! ((length initStckr) - 1)
+                              char = plainTxt !! charIndex
+                              nextCharIndex = longMenu !! (length initStckr)
+                              nextChar = plainTxt !! nextCharIndex
+                              updatedOff = incrementOffsetsBy (charIndex+1) off
+                              stckr = formatStecker initStckr
+                              enigma = SteckeredEnigma rotor1 rotor2 rotor3 reflectorB updatedOff stckr
+                              encodedChar = encodeChar char enigma
+                              newStckr = (initStckr ++ [(encodedChar, nextChar)])
+
+  incrementOffsetsBy :: Int -> Offsets -> Offsets
+  incrementOffsetsBy 0 off = off
+  incrementOffsetsBy n off
+                        | n > 0 = incrementOffsetsBy (n-1) newOffsets
+                        where
+                          newOffsets = incrementOffsets off rotor1 rotor2 rotor3 
+  
   isSteckerValid :: Stecker -> Bool
   isSteckerValid stecker
-                    | length (intersectStecker [] stecker) > 0 || elmRepeats [] (f:fs) || elmRepeats [] (s:ss) = False
+                    | length (intersectStecker [] fmtdStckr) > 0 || elmRepeats [] (f:fs) || elmRepeats [] (s:ss) || length (intersect (f:fs) (s:ss)) >0 = False
                     | otherwise = True 
                     where
-                      (f:fs) = map fst stecker
-                      (s:ss) = map snd stecker
+                      fmtdStckr = formatStecker stecker
+                      (f:fs) | length fmtdStckr > 0 = map fst fmtdStckr
+                             | otherwise = ['A']
+                      (s:ss) | length fmtdStckr > 0 = map snd fmtdStckr
+                             | otherwise = ['B']
+  
+  formatStecker :: Stecker -> Stecker
+  formatStecker stecker = removeMirroredSteckers (removeRedundantSteckers (nub stecker))
 
   intersectStecker :: [Char] -> Stecker -> [Char]
   intersectStecker [] (x:xs) = []
+  intersectStecker [] [] = []
   intersectStecker _ (x:xs) = steckerInt
     where
       steckerInt | (getIndex i plain)==(getIndex i crypt) = []
-                 | otherwise = (i:is) ++ intersectStecker is (x:xs)
-      plain = map fst (x:xs)
-      crypt = map snd (x:xs)
+                 | otherwise = [i] ++ intersectStecker is (x:xs)
+      uniquePlugs = nub (x:xs)
+      plain = (map fst uniquePlugs)
+      crypt = map snd uniquePlugs
       (i:is) = intersect plain crypt
 
+  removeMirroredSteckers :: Stecker -> Stecker
+  removeMirroredSteckers [] = []
+  removeMirroredSteckers ((a,b):xs)
+                                | find (==(b,a)) xs == Nothing = [(a,b)] ++ removeMirroredSteckers xs
+                                | otherwise = [] ++ removeMirroredSteckers xs
+  
+  removeRedundantSteckers :: Stecker -> Stecker
+  removeRedundantSteckers [] = []
+  removeRedundantSteckers (x:xs) 
+                              | fst x == snd x = [] ++ removeRedundantSteckers xs
+                              | otherwise = [] ++ [x] ++ removeRedundantSteckers xs
+  
+  elmRepeats :: [Char] -> [Char] -> Bool
+  elmRepeats newList [] = False
+  elmRepeats newList (x:xs)
+                  | length xs > 0 && isInList (head xs) (newList ++ [x]) = True
+                  | otherwise = elmRepeats (newList ++ [x]) xs
+  
+  stringCorrectness :: String -> String -> Int
+  stringCorrectness a b = percentCorrect
+    where
+      equal_letters = [ (x,y) | (x,y) <- (zip a b), x==y]
+      lettersCorrect = length equal_letters
+      numLetters = length a
+      percentCorrect = lettersCorrect `div` numLetters * 100
 
 {- Useful definitions and functions -}
 
@@ -241,7 +322,7 @@ module Enigma where
   alphaPos c = (ord c) - ord 'A'
 
   charFromAlphaPos :: Int -> Char
-  charFromAlphaPos i = chr ( i + ord 'A')
+  charFromAlphaPos i = chr ( i + ord 'A' )
 
   shiftFrwd :: Char -> Int -> Char 
   shiftFrwd c n = charFromAlphaPos ( (apc + n) `mod` 26 )

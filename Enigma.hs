@@ -20,6 +20,8 @@ module Enigma where
   data Enigma = SimpleEnigma Rotor Rotor Rotor Reflector Offsets
                 | SteckeredEnigma Rotor Rotor Rotor Reflector Offsets Stecker
 
+  {-Formats a message by removing all characters that aren't letters and capitalises all the letters
+  and then encodes the formatted string with the given enigma-}
   encodeMessage :: String -> Enigma -> String
   encodeMessage message (SimpleEnigma rL rM rR rf off) = encodeString capMessage (SimpleEnigma rL rM rR rf off) 
     where
@@ -30,11 +32,7 @@ module Enigma where
       capMessage = capitaliseMessage truncMessage
       truncMessage = truncateMessage message
 
-  {- You will need to add many more functions. Remember, design it carefully
-   - and keep it simple! If things are feeling complicated, step back from your
-   - code and think about the design again.
-   -}
-
+  {-Encodes a given string with the given enigma-}
   encodeString :: String -> Enigma -> String
   encodeString [] (SimpleEnigma rL rM rR rf off) = []
   encodeString [] (SteckeredEnigma rL rM rR rf off pb) = []
@@ -47,6 +45,7 @@ module Enigma where
       updatedOff = incrementOffsets off rL rM rR
       steckeredEnigma = (SteckeredEnigma rL rM rR rf updatedOff pb)
   
+  {-Encodes a character with the given enigma-}
   encodeChar :: Char -> Enigma -> Char
   encodeChar character (SimpleEnigma rL rM rR rf off) = encodedChar
     where
@@ -61,6 +60,7 @@ module Enigma where
       rvrsEnc = (reversePassByRotors rfChar off rL rM rR)
       encodedChar = steckerChar rvrsEnc pb
   
+  {-Increments the offsets by one in accordance with the given offsets-}
   incrementOffsets :: Offsets -> Rotor -> Rotor -> Rotor -> Offsets 
   incrementOffsets (off1, off2, off3) r1 (_,kM) (_,kR) = (newL, newM, newR)
                                          where
@@ -69,7 +69,8 @@ module Enigma where
                                                | otherwise = off2
                                           newL | off2 == kM && off3 == kR = (off1+1) `mod` 26
                                                | otherwise = off1
-                                               
+
+  {-Encodes a character through the right, middle and left rotors, respectively-}                                             
   passByRotors :: Char -> Offsets -> Rotor -> Rotor -> Rotor -> Char
   passByRotors character (oL, oM, oR) rL rM rR = finalChar
               where
@@ -77,6 +78,7 @@ module Enigma where
                 middleRotor = (passByRotor rightRotor rM oM)
                 finalChar =  passByRotor middleRotor rL oL
 
+  {-Reverse-encodes a character through the left, middle and right rotors, respectively-}
   reversePassByRotors :: Char -> Offsets -> Rotor -> Rotor -> Rotor -> Char
   reversePassByRotors character (oL, oM, oR) rL rM rR = finalChar
                 where
@@ -84,6 +86,7 @@ module Enigma where
                   middleRotor = (reversePassByRotor leftRotor rM oM)
                   finalChar = reversePassByRotor middleRotor rR oR
 
+  {-Reflects a character with the given reflector-}
   reflectChar :: Char -> Reflector -> Char
   reflectChar _ [] = 'A'
   reflectChar character (x:xs)
@@ -94,7 +97,7 @@ module Enigma where
                               equalFst = (character == fst x)
                               equalSnd = (character == snd x)
 
-
+  {-Reverse-encodes a character through a single rotor and the given offset-}
   reversePassByRotor :: Char -> Rotor -> Int -> Char
   reversePassByRotor character r n 
                             | n>0 = shiftBckrwd (charFromAlphaPos (shiftedCharIndex)) n
@@ -104,7 +107,7 @@ module Enigma where
                               shiftedChar = shiftFrwd character n 
                               shiftedCharIndex = getIndex shiftedChar (fst r)
 
-
+  {-Encodes a character through a single rotor with a given offset-}
   passByRotor :: Char -> Rotor -> Int -> Char
   passByRotor character r n 
                             | n>0 = shiftBckrwd ( fst r !! (shiftedCharIndex) ) n
@@ -114,7 +117,7 @@ module Enigma where
                               shiftedChar = shiftFrwd character n 
                               shiftedCharIndex = alphaPos shiftedChar
 
-
+  {-Steckers a character with the give plugboard-}
   steckerChar :: Char -> Stecker -> Char
   steckerChar a [] = a
   steckerChar a (x:xs)
@@ -124,6 +127,7 @@ module Enigma where
                     fstChars = (map fst (x:xs))
                     sndChars = (map snd (x:xs))
 
+  {-Checks if an element is in a list-}
   isInList :: Char -> [Char] -> Bool
   isInList a [] = False
   isInList a (x:xs)
@@ -136,11 +140,13 @@ module Enigma where
   type Menu = [Int] -- the supplied type is not correct; fix it!
   type Crib = [(Char,Char)] -- the supplied type is not correct; fix it!
 
+  {-Returns a random longest menu that you can get from the provided crib-}
   longestMenu :: Crib -> Menu
   longestMenu crib = maximumBy (comparing length) (completeMenu startedMenus crib)
     where
       startedMenus = arrangeMenus [] [0..(length crib -1)]
 
+  {-Returns a list with all the possible next positions in the menu from a given initial position-}
   nextInMenu :: Int -> Crib -> [Int]
   nextInMenu index (x:xs) = findIndices (==cyChar) crib
                       where
@@ -148,10 +154,12 @@ module Enigma where
                         cryp = map snd (x:xs)
                         cyChar = cryp !! index
 
+  {-Appends each element of the second list to the first list and puts it in all of them in a list of lists-}
   arrangeMenus :: [Int] -> [Int] -> [[Int]]
   arrangeMenus incMenu [] = []
   arrangeMenus incMenu (y:ys) = [] ++ [incMenu ++ [y]] ++ arrangeMenus incMenu ys
 
+  {-Returns a complete list of all possible menus you can get from a crib-}
   completeMenu :: [[Int]] -> Crib -> [[Int]]
   completeMenu [] crib = []
   completeMenu (x:xs) crib = [] ++ menus ++ completeMenu menus newCrib ++ completeMenu xs crib
@@ -163,6 +171,7 @@ module Enigma where
 
 {- Part 3: Simulating the Bombe -}
   
+  {-Returns a Maybe type with the possible Offsets and Stecker solution-}
   breakEnigma :: Crib -> Maybe (Offsets, Stecker)
   breakEnigma [] = Nothing
   breakEnigma crib 
@@ -173,6 +182,7 @@ module Enigma where
                     initOffsets = (0,6,23)
                     possibleSolutions = tryAllOffsets crib menu initOffsets 0
 
+  {-Runs the Bombe Simulations with all the possible offsets and all possible initial assumptions-}
   tryAllOffsets :: Crib -> Menu -> Offsets -> Int -> (Offsets, Stecker)
   tryAllOffsets crib menu off 17575 = ((0,0,0),[])
   tryAllOffsets crib menu off n 
@@ -183,6 +193,7 @@ module Enigma where
       possibleStecker = tryAllAssumptions initAssumptions crib menu off
       newOff = incrementOffsets off rotor1 rotor2 rotor3 
 
+  {-Runs the Bombe Simulations with all the possible initial assumptions-}
   tryAllAssumptions :: [(Char,Char)] -> Crib -> Menu -> Offsets -> Stecker 
   tryAllAssumptions [] crib menu off = []
   tryAllAssumptions (x:xs) crib menu off
@@ -195,6 +206,7 @@ module Enigma where
                                     fmtdStecker = formatStecker possibleStecker
                                     possibleEnigma = (SteckeredEnigma rotor1 rotor2 rotor3 reflectorB off fmtdStecker)
   
+  {-Creates a list with all the initial assumptions from the menu start position in the crib-}
   createAssumptions :: Crib -> Menu -> Int -> [(Char,Char)]
   createAssumptions crib menu 0 = []
   createAssumptions crib menu n = [] ++ [(initChar,assumption)] ++ createAssumptions crib menu (n-1)
@@ -205,11 +217,12 @@ module Enigma where
       assumptionAlphaPos = ((charAlphaPos + iter) `mod` 26 )
       assumption = charFromAlphaPos assumptionAlphaPos
       
+  {-Runs the Bombe Simulation with a specific offset and a specific initial offset-}
   tryAssumption :: Crib -> Menu -> Stecker -> Offsets -> Stecker
   tryAssumption [] [] [] off = []
   tryAssumption crib longMenu initStckr off
                             | isSteckerValid newStckr == False = []
-                            | isSteckerValid newStckr && length longMenu == length newStckr = newStckr
+                            | isSteckerValid newStckr && length longMenu == length newStckr = stckr
                             | isSteckerValid newStckr && length longMenu /= length newStckr = tryAssumption crib longMenu newStckr off
                             where
                               plainTxt = (map fst crib)
@@ -223,7 +236,8 @@ module Enigma where
                               enigma = SteckeredEnigma rotor1 rotor2 rotor3 reflectorB updatedOff stckr
                               encodedChar = encodeChar char enigma
                               newStckr = (initStckr ++ [(encodedChar, nextChar)])
-
+  
+  {-Increments the offsets by the given Int-}
   incrementOffsetsBy :: Int -> Offsets -> Offsets
   incrementOffsetsBy 0 off = off
   incrementOffsetsBy n off
@@ -231,9 +245,10 @@ module Enigma where
                         where
                           newOffsets = incrementOffsets off rotor1 rotor2 rotor3 
   
+  {-Checks if the stecker provided is valid-}
   isSteckerValid :: Stecker -> Bool
   isSteckerValid stecker
-                    | length (intersectStecker [] fmtdStckr) > 0 || elmRepeats [] (f:fs) || elmRepeats [] (s:ss) || length (intersect (f:fs) (s:ss)) >0 = False
+                    | elmRepeats [] (f:fs) || elmRepeats [] (s:ss) || length (intersect (f:fs) (s:ss)) > 0 = False
                     | otherwise = True 
                     where
                       fmtdStckr = formatStecker stecker
@@ -242,39 +257,33 @@ module Enigma where
                       (s:ss) | length fmtdStckr > 0 = map snd fmtdStckr
                              | otherwise = ['B']
   
+  {-Formats the Stecker to remove letters plugged to themselves and keep only one of mirrored steckers-}
   formatStecker :: Stecker -> Stecker
   formatStecker stecker = removeMirroredSteckers (removeRedundantSteckers (nub stecker))
-
-  intersectStecker :: [Char] -> Stecker -> [Char]
-  intersectStecker [] (x:xs) = []
-  intersectStecker [] [] = []
-  intersectStecker _ (x:xs) = steckerInt
-    where
-      steckerInt | (getIndex i plain)==(getIndex i crypt) = []
-                 | otherwise = [i] ++ intersectStecker is (x:xs)
-      uniquePlugs = nub (x:xs)
-      plain = (map fst uniquePlugs)
-      crypt = map snd uniquePlugs
-      (i:is) = intersect plain crypt
-
+  
+  {-Removes mirrored plugs from the Stecker-}
   removeMirroredSteckers :: Stecker -> Stecker
   removeMirroredSteckers [] = []
   removeMirroredSteckers ((a,b):xs)
                                 | find (==(b,a)) xs == Nothing = [(a,b)] ++ removeMirroredSteckers xs
                                 | otherwise = [] ++ removeMirroredSteckers xs
   
+  {-Removes letters that are plugged to themselves from the Stecker-}
   removeRedundantSteckers :: Stecker -> Stecker
   removeRedundantSteckers [] = []
   removeRedundantSteckers (x:xs) 
                               | fst x == snd x = [] ++ removeRedundantSteckers xs
                               | otherwise = [] ++ [x] ++ removeRedundantSteckers xs
   
+  {-Checks if the second list provided has any duplicate-}
   elmRepeats :: [Char] -> [Char] -> Bool
   elmRepeats newList [] = False
   elmRepeats newList (x:xs)
                   | length xs > 0 && isInList (head xs) (newList ++ [x]) = True
                   | otherwise = elmRepeats (newList ++ [x]) xs
   
+  {-Calculates the correctness of the first string being that the second one is the correct one
+  I wanted to implement this as a test case for the enigma but ended up not being able to do it-}
   stringCorrectness :: String -> String -> Int
   stringCorrectness a b = percentCorrect
     where
@@ -320,15 +329,18 @@ module Enigma where
    -}
   alphaPos :: Char -> Int
   alphaPos c = (ord c) - ord 'A'
-
+  
+  {-Given an int, returns its character according to the alpha position-}
   charFromAlphaPos :: Int -> Char
   charFromAlphaPos i = chr ( i + ord 'A' )
 
+  {-Shifts the character given forward with the given int-}
   shiftFrwd :: Char -> Int -> Char 
   shiftFrwd c n = charFromAlphaPos ( (apc + n) `mod` 26 )
               where
                 apc = alphaPos c 
 
+  {-Shifts the character given backward with the given int-}
   shiftBckrwd :: Char -> Int -> Char 
   shiftBckrwd c n
               | n > apc = charFromAlphaPos ( 26 - (n-apc))
@@ -336,7 +348,7 @@ module Enigma where
               where
                 apc = alphaPos c
 
-  --technically I'm substituting in order to not lose the indices when doing the rest of the menu
+  {-Substitutes the plug at the given index with ('a','a') to eliminate it and not lose indices-}
   removeFromCrib :: Int -> Crib -> Crib
   removeFromCrib _ [] = []
   removeFromCrib index (x:xs) = fstPart ++ [('a','a')] ++ sndPart
@@ -345,6 +357,7 @@ module Enigma where
       fstPart = fst splitCrib
       sndPart = tail (snd splitCrib)
 
+  {-Returns the Index of the first instance of a Char in a list of Char-}
   getIndex :: Char -> [Char] -> Int
   getIndex _ [] = 0
   getIndex character (x:xs)
@@ -353,12 +366,14 @@ module Enigma where
                           where
                             i = 1
 
+  {-Removes all the characters that aren't letters from a provided string-}
   truncateMessage :: String -> String
   truncateMessage [] = []
   truncateMessage (x:xs)
                       | isAlpha x = [] ++ [x] ++ truncateMessage xs
                       | otherwise = truncateMessage xs
 
+  {-Capitalises a string-}
   capitaliseMessage :: String -> String 
   capitaliseMessage [] = []
   capitaliseMessage (x:xs) = [] ++ [(toUpper x)] ++ capitaliseMessage xs 
